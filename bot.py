@@ -1,14 +1,10 @@
-# ================================
-# TELEGRAM AI HUMAN-LIKE BOT
-# Made for GitHub + Render Hosting
-# ================================
-
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     MessageHandler,
     ContextTypes,
     filters,
+    CommandHandler,
 )
 
 import google.generativeai as genai
@@ -16,63 +12,51 @@ import os
 import random
 import asyncio
 
-# ================================
-# API CONFIG
-# ================================
+# =========================
+# TOKENS
+# =========================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GEMINI_API = os.getenv("GEMINI_API")
+
+# =========================
+# GEMINI SETUP
+# =========================
 
 genai.configure(api_key=GEMINI_API)
 
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-# ================================
-# MEMORY SYSTEM
-# ================================
+# =========================
+# MEMORY
+# =========================
 
-user_memory = {}
+memory = {}
 
-# ================================
-# HUMAN REPLY STYLES
-# ================================
+# =========================
+# START COMMAND
+# =========================
 
-human_reactions = [
-    "hmm 😭",
-    "arey 😭",
-    "acha 😭",
-    "lol 😭",
-    "sach me? 👀",
-    "damnn 😭",
-    "brooo 😭",
-]
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-# ================================
-# MAIN CHAT FUNCTION
-# ================================
+    await update.message.reply_text(
+        "heyy 😭\nmain VegRoll aa gayi lol"
+    )
+
+# =========================
+# CHAT FUNCTION
+# =========================
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
-    user_name = update.effective_user.first_name
-    user_text = update.message.text
+    username = update.effective_user.first_name
+    text = update.message.text
 
-    # Ignore empty text
-    if not user_text:
+    if not text:
         return
 
-    # Save short memory
-    if user_id not in user_memory:
-        user_memory[user_id] = []
-
-    user_memory[user_id].append(user_text)
-
-    # Keep only last 5 msgs
-    user_memory[user_id] = user_memory[user_id][-5:]
-
-    memory_text = "\n".join(user_memory[user_id])
-
-    # Fake typing
+    # typing effect
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id,
         action="typing"
@@ -80,62 +64,64 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await asyncio.sleep(random.randint(1, 3))
 
-    # Personality Prompt
+    # memory
+    if user_id not in memory:
+        memory[user_id] = []
+
+    memory[user_id].append(text)
+
+    memory[user_id] = memory[user_id][-5:]
+
+    history = "\n".join(memory[user_id])
+
     prompt = f"""
-You are a real human friend chatting on Telegram.
+You are VegRoll, a real human-like Telegram friend.
 
 Rules:
-- Never sound like AI
 - Talk naturally
-- Use Hindi + English mix
-- Sometimes use emojis
-- Keep replies short
-- Be emotional and funny
-- Sometimes tease lightly
-- Don't write long paragraphs
-- Talk casually like Gen-Z
+- Hindi + English mix
+- Cute and funny
+- Use emojis sometimes
+- Never sound robotic
+- Short casual replies
+- Gen-Z vibe
 
-User name: {user_name}
+User Name: {username}
 
-Recent messages:
-{memory_text}
+Recent chat:
+{history}
 
-User: {user_text}
+User: {text}
 """
 
     try:
+
         response = model.generate_content(prompt)
 
         reply = response.text.strip()
 
-        # Random extra human reaction
-        if random.random() < 0.3:
-            reply += "\n\n" + random.choice(human_reactions)
-
         await update.message.reply_text(reply)
 
     except Exception as e:
+
         await update.message.reply_text(
             "arey 😭 thoda network issue ho gaya"
         )
 
-# ================================
-# START COMMAND
-# ================================
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    await update.message.reply_text(
-        "heyy 😭\nmain aa gayi lol"
-    )
-
-# ================================
-# BOT START
-# ================================
+# =========================
+# APP
+# =========================
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
+app.add_handler(CommandHandler("start", start))
+
+app.add_handler(
+    MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        chat
+    )
+)
 
 print("Bot Running...")
 
